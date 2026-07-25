@@ -7,6 +7,7 @@ let currentFaceShape = '';
 let currentUndertone = '';
 let lipstickColor = 'rgba(255, 127, 80, 0.6)';
 let lastLandmarks = null;
+let snapshotDataURL = null; // متغیر جدید برای ذخیره عکس واقعی
 
 // --- اتصال به عناصر HTML ---
 const videoElement = document.getElementById('webcam');
@@ -27,7 +28,7 @@ const btnMale = document.getElementById('btnMale');
 const btnFemale = document.getElementById('btnFemale');
 const recommendationsSection = document.getElementById('recommendations');
 
-// --- دیکشنری ترجمه ---
+// --- دیکشنری ---
 const translations = {
     en: {
         warning: "⚠️ Inside Iran, you must turn ON a VPN to use this app. However, if you have 'Internet Pro', you MUST turn OFF your VPN.",
@@ -90,49 +91,45 @@ function updateUI() {
 
 // --- هوش مصنوعی گوگل ---
 const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: true });
+faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: false }); // خاموش کردن حالت آینه‌ای در گوگل
 faceMesh.onResults(onResults);
 
-// --- تابع رسم رژ لب مجازی (پر کردن واقعی داخل لب) ---
+// --- تابع رسم رژ لب مجازی ---
 function drawFilledLips(ctx, landmarks, color) {
     const upperOuter = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291];
     const lowerOuter = [291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61];
     ctx.fillStyle = color;
-    // لب بالا
     ctx.beginPath();
     ctx.moveTo(landmarks[upperOuter[0]].x * canvasElement.width, landmarks[upperOuter[0]].y * canvasElement.height);
     for (let i = 1; i < upperOuter.length; i++) { ctx.lineTo(landmarks[upperOuter[i]].x * canvasElement.width, landmarks[upperOuter[i]].y * canvasElement.height); }
     ctx.closePath(); ctx.fill();
-    // لب پایین
     ctx.beginPath();
     ctx.moveTo(landmarks[lowerOuter[0]].x * canvasElement.width, landmarks[lowerOuter[0]].y * canvasElement.height);
     for (let i = 1; i < lowerOuter.length; i++) { ctx.lineTo(landmarks[lowerOuter[i]].x * canvasElement.width, landmarks[lowerOuter[i]].y * canvasElement.height); }
     ctx.closePath(); ctx.fill();
 }
 
-// --- پردازش نتایج (رسم تصویر و خطوط روی هم) ---
+// --- پردازش نتایج (زنده) ---
 function onResults(results) {
   if (isCompleted) return;
 
-  // تنظیم اندازه Canvas با اندازه ویدیو
   canvasElement.width = results.image.width;
   canvasElement.height = results.image.height;
 
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-  // ایجاد حالت آینه‌ای (Selfie) در Canvas
+  // انعکاس آینه‌ای برای دوربین سلفی
   canvasCtx.translate(canvasElement.width, 0);
   canvasCtx.scale(-1, 1);
 
-  // رسم تصویر دوربین مستقیماً داخل Canvas (معجزه هم‌راستایی!)
+  // رسم تصویر واقعی دوربین
   canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
   if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
     const landmarks = results.multiFaceLandmarks[0];
     lastLandmarks = landmarks;
 
-    // رسم خطوط پایه
     drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
@@ -140,7 +137,6 @@ function onResults(results) {
     drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, {color: '#E8B4B8', lineWidth: 2});
 
-    // آنالیز فرم صورت
     const forehead = landmarks[10]; const chin = landmarks[152]; const leftCheek = landmarks[234]; const rightCheek = landmarks[454];
     const faceLength = Math.abs(forehead.y - chin.y); const faceWidth = Math.abs(leftCheek.x - rightCheek.x);
     const ratio = faceLength / faceWidth;
@@ -149,7 +145,6 @@ function onResults(results) {
     else if (ratio < 1.1) { currentFaceShape = 'square'; shapeValue.innerText = t.square; }
     else { currentFaceShape = 'round'; shapeValue.innerText = t.round; }
 
-    // آنالیز رنگ پوست
     const foreheadPixel = landmarks[10];
     const x = Math.round(foreheadPixel.x * canvasElement.width);
     const y = Math.round(foreheadPixel.y * canvasElement.height);
@@ -160,7 +155,7 @@ function onResults(results) {
     else { currentUndertone = 'neutral'; undertoneValue.innerText = t.neutral; lipstickColor = 'rgba(224, 176, 255, 0.6)'; }
     if (currentGender === 'male') lipstickColor = 'rgba(210, 180, 140, 0.4)';
 
-    if (!detectionTimer) { detectionTimer = setTimeout(() => completeAnalysis(results.image), 3000); }
+    if (!detectionTimer) { detectionTimer = setTimeout(() => completeAnalysis(), 3000); }
   } else {
     shapeValue.innerText = translations[currentLanguage].waiting;
     undertoneValue.innerText = translations[currentLanguage].waiting;
@@ -169,36 +164,50 @@ function onResults(results) {
   canvasCtx.restore();
 }
 
-// --- توقف و نمایش نهایی ---
-function completeAnalysis(frozenImage) {
+// --- توقف و نمایش نهایی (عکس واقعی + رژ لب روی لب) ---
+function completeAnalysis() {
   isCompleted = true;
+  
+  // ۱. گرفتن یک عکس (Snapshot) از تصویر واقعی دوربین و خطوط قبل از خاموش شدن
+  snapshotDataURL = canvasElement.toDataURL('image/png');
+
+  // ۲. خاموش کردن چراغ دوربین گوشی
   const stream = videoElement.srcObject;
   if (stream) { stream.getTracks().forEach(track => track.stop()); }
+  videoElement.srcObject = null;
+
   startButton.innerText = translations[currentLanguage].restartBtn;
 
-  // رسم تصویر فریز شده + رژ لب واقعی روی Canvas
-  canvasCtx.save();
-  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-  canvasCtx.translate(canvasElement.width, 0);
-  canvasCtx.scale(-1, 1);
-  
-  // رسم عکس آخر
-  canvasCtx.drawImage(frozenImage, 0, 0, canvasElement.width, canvasElement.height);
-  
-  // رسم رژ لب مجازی داخل لب‌ها
-  if (lastLandmarks) { drawFilledLips(canvasCtx, lastLandmarks, lipstickColor); }
-  
-  // رسم دوباره خطوط صورت روی رژ لب
-  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
-  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
-  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
-  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LEFT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
-  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
-
-  canvasCtx.restore();
-
-  recommendationsSection.classList.remove('hidden');
-  renderRecommendations();
+  // ۳. بارگذاری عکس واقعی ذخیره شده و رسم رژ لب روی آن
+  const img = new Image();
+  img.onload = () => {
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.save();
+      
+      // انعکاس آینه‌ای
+      canvasCtx.translate(canvasElement.width, 0);
+      canvasCtx.scale(-1, 1);
+      
+      // رسم عکس واقعی کاربر (پس‌زمینه فرش و صورت واقعی)
+      canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
+      
+      // رسم رژ لب مجازی دقیقاً روی لب واقعی کاربر
+      if (lastLandmarks) { drawFilledLips(canvasCtx, lastLandmarks, lipstickColor); }
+      
+      // رسم دوباره خطوط قرمز و آبی روی عکس (تا دقیقاً روی صورت بمانند)
+      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
+      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
+      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
+      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LEFT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
+      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
+      
+      canvasCtx.restore();
+      
+      // نمایش پیشنهادها
+      recommendationsSection.classList.remove('hidden');
+      renderRecommendations();
+  };
+  img.src = snapshotDataURL;
 }
 
 // --- تولید کادر پیشنهادها ---
@@ -223,7 +232,7 @@ function renderRecommendations() {
 async function enableCamera() {
   try {
     if (isCompleted) {
-        isCompleted = false; detectionTimer = null; lastLandmarks = null;
+        isCompleted = false; detectionTimer = null; lastLandmarks = null; snapshotDataURL = null;
         recommendationsSection.classList.add('hidden');
         shapeValue.innerText = translations[currentLanguage].waiting;
         undertoneValue.innerText = translations[currentLanguage].waiting;
