@@ -19,7 +19,7 @@ body {
 
 /* هشدار VPN */
 .warning-banner {
-    background-color: #ff9800; /* رنگ زرد/نارنجی برای هشدار */
+    background-color: #ff9800;
     color: black;
     font-weight: bold;
     padding: 15px;
@@ -65,7 +65,7 @@ body {
     background: linear-gradient(45deg, #ff4757, #ff6b81);
 }
 
-/* دوربین */
+/* دوربین - اصلاح شده */
 .video-container {
     position: relative;
     width: 100%;
@@ -75,19 +75,16 @@ body {
     background-color: #000;
 }
 
+/* ویدیو را مخفی می‌کنیم چون حالا تصویر را روی Canvas می‌کشیم */
 #webcam {
-    width: 100%;
-    display: block;
-    transform: scaleX(-1); /* تصویر آینه‌ای */
+    display: none; 
 }
 
+/* Canvas حالا جایگزین ویدیو شده است، بدون انعکاس آینه‌ای در CSS */
 #makeupCanvas {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
-    height: 100%;
-    transform: scaleX(-1);
+    height: auto;
+    display: block;
 }
 
 /* دکمه اصلی */
@@ -111,7 +108,7 @@ body {
     cursor: not-allowed;
 }
 
-/* بخش آنالیز زنده */
+/* بخش آنالیز */
 .analysis-section {
     display: flex;
     gap: 15px;
