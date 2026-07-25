@@ -93,51 +93,46 @@ const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/
 faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: true });
 faceMesh.onResults(onResults);
 
-// --- تابع رسم رژ لب مجازی (پر کردن داخل لب) ---
+// --- تابع رسم رژ لب مجازی (پر کردن واقعی داخل لب) ---
 function drawFilledLips(ctx, landmarks, color) {
-    // نقاط حاشیه خارجی لب بالا و لب پایین (استخراج شده از مدل گوگل)
     const upperOuter = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291];
     const lowerOuter = [291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61];
-
     ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-
-    // رسم لب بالا
+    // لب بالا
     ctx.beginPath();
     ctx.moveTo(landmarks[upperOuter[0]].x * canvasElement.width, landmarks[upperOuter[0]].y * canvasElement.height);
-    for (let i = 1; i < upperOuter.length; i++) {
-        ctx.lineTo(landmarks[upperOuter[i]].x * canvasElement.width, landmarks[upperOuter[i]].y * canvasElement.height);
-    }
-    ctx.closePath();
-    ctx.fill();
-
-    // رسم لب پایین
+    for (let i = 1; i < upperOuter.length; i++) { ctx.lineTo(landmarks[upperOuter[i]].x * canvasElement.width, landmarks[upperOuter[i]].y * canvasElement.height); }
+    ctx.closePath(); ctx.fill();
+    // لب پایین
     ctx.beginPath();
     ctx.moveTo(landmarks[lowerOuter[0]].x * canvasElement.width, landmarks[lowerOuter[0]].y * canvasElement.height);
-    for (let i = 1; i < lowerOuter.length; i++) {
-        ctx.lineTo(landmarks[lowerOuter[i]].x * canvasElement.width, landmarks[lowerOuter[i]].y * canvasElement.height);
-    }
-    ctx.closePath();
-    ctx.fill();
+    for (let i = 1; i < lowerOuter.length; i++) { ctx.lineTo(landmarks[lowerOuter[i]].x * canvasElement.width, landmarks[lowerOuter[i]].y * canvasElement.height); }
+    ctx.closePath(); ctx.fill();
 }
 
-// --- پردازش نتایج ---
+// --- پردازش نتایج (رسم تصویر و خطوط روی هم) ---
 function onResults(results) {
   if (isCompleted) return;
 
-  // **اصلاح مشکل ۱:** تنظیم دقیق اندازه Canvas با اندازه ویدیو دوربین
-  canvasElement.width = videoElement.videoWidth;
-  canvasElement.height = videoElement.videoHeight;
+  // تنظیم اندازه Canvas با اندازه ویدیو
+  canvasElement.width = results.image.width;
+  canvasElement.height = results.image.height;
 
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-  
+
+  // ایجاد حالت آینه‌ای (Selfie) در Canvas
+  canvasCtx.translate(canvasElement.width, 0);
+  canvasCtx.scale(-1, 1);
+
+  // رسم تصویر دوربین مستقیماً داخل Canvas (معجزه هم‌راستایی!)
+  canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
   if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
     const landmarks = results.multiFaceLandmarks[0];
     lastLandmarks = landmarks;
 
-    // رسم خطوط پایه (چشم، ابرو، دور صورت) - نازک و دقیق
+    // رسم خطوط پایه
     drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
@@ -145,7 +140,7 @@ function onResults(results) {
     drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, {color: '#E8B4B8', lineWidth: 2});
 
-    // محاسبه فرم صورت
+    // آنالیز فرم صورت
     const forehead = landmarks[10]; const chin = landmarks[152]; const leftCheek = landmarks[234]; const rightCheek = landmarks[454];
     const faceLength = Math.abs(forehead.y - chin.y); const faceWidth = Math.abs(leftCheek.x - rightCheek.x);
     const ratio = faceLength / faceWidth;
@@ -165,7 +160,7 @@ function onResults(results) {
     else { currentUndertone = 'neutral'; undertoneValue.innerText = t.neutral; lipstickColor = 'rgba(224, 176, 255, 0.6)'; }
     if (currentGender === 'male') lipstickColor = 'rgba(210, 180, 140, 0.4)';
 
-    if (!detectionTimer) { detectionTimer = setTimeout(() => completeAnalysis(), 3000); }
+    if (!detectionTimer) { detectionTimer = setTimeout(() => completeAnalysis(results.image), 3000); }
   } else {
     shapeValue.innerText = translations[currentLanguage].waiting;
     undertoneValue.innerText = translations[currentLanguage].waiting;
@@ -175,16 +170,32 @@ function onResults(results) {
 }
 
 // --- توقف و نمایش نهایی ---
-function completeAnalysis() {
+function completeAnalysis(frozenImage) {
   isCompleted = true;
   const stream = videoElement.srcObject;
   if (stream) { stream.getTracks().forEach(track => track.stop()); }
   startButton.innerText = translations[currentLanguage].restartBtn;
 
-  // **اصلاح مشکل ۲:** رسم رژ لب واقعی (پر کردن داخل لب) روی تصویر فریز شده
-  if (lastLandmarks) {
-    drawFilledLips(canvasCtx, lastLandmarks, lipstickColor);
-  }
+  // رسم تصویر فریز شده + رژ لب واقعی روی Canvas
+  canvasCtx.save();
+  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  canvasCtx.translate(canvasElement.width, 0);
+  canvasCtx.scale(-1, 1);
+  
+  // رسم عکس آخر
+  canvasCtx.drawImage(frozenImage, 0, 0, canvasElement.width, canvasElement.height);
+  
+  // رسم رژ لب مجازی داخل لب‌ها
+  if (lastLandmarks) { drawFilledLips(canvasCtx, lastLandmarks, lipstickColor); }
+  
+  // رسم دوباره خطوط صورت روی رژ لب
+  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
+  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
+  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
+  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LEFT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
+  drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
+
+  canvasCtx.restore();
 
   recommendationsSection.classList.remove('hidden');
   renderRecommendations();
