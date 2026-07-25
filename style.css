@@ -17,7 +17,6 @@ body {
     padding: 20px;
 }
 
-/* هشدار VPN */
 .warning-banner {
     background-color: #ff9800;
     color: black;
@@ -30,7 +29,6 @@ body {
     line-height: 1.5;
 }
 
-/* نام طراح */
 #designerName {
     font-size: 16px;
     color: #b0b0b0;
@@ -38,7 +36,6 @@ body {
     font-weight: normal;
 }
 
-/* دکمه‌های انتخاب */
 .toggles {
     display: flex;
     justify-content: space-between;
@@ -65,7 +62,6 @@ body {
     background: linear-gradient(45deg, #ff4757, #ff6b81);
 }
 
-/* دوربین - اصلاح شده */
 .video-container {
     position: relative;
     width: 100%;
@@ -75,19 +71,19 @@ body {
     background-color: #000;
 }
 
-/* ویدیو را مخفی می‌کنیم چون حالا تصویر را روی Canvas می‌کشیم */
+/* ویدیو مخفی است چون ما تصویر را روی Canvas می‌کشیم */
 #webcam {
     display: none; 
 }
 
-/* Canvas حالا جایگزین ویدیو شده است، بدون انعکاس آینه‌ای در CSS */
+/* کادر Canvas جایگزین ویدیو شده و با یک خط کد، دقیقاً مثل آینه عمل می‌کند */
 #makeupCanvas {
     width: 100%;
     height: auto;
     display: block;
+    transform: scaleX(-1); /* معجزه هم‌راستایی! این خط باعث میشود خطوط 100% روی صورت بیفتند */
 }
 
-/* دکمه اصلی */
 .action-btn {
     margin-top: 20px;
     padding: 15px 0;
@@ -108,7 +104,6 @@ body {
     cursor: not-allowed;
 }
 
-/* بخش آنالیز */
 .analysis-section {
     display: flex;
     gap: 15px;
@@ -137,7 +132,6 @@ body {
     color: #ff6b81;
 }
 
-/* بخش پیشنهادها */
 .recommendations-section {
     margin-top: 30px;
 }
