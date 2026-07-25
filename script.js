@@ -5,11 +5,11 @@ let isCompleted = false;
 let detectionTimer = null;
 let currentFaceShape = '';
 let currentUndertone = '';
-let lipstickColor = 'rgba(255, 127, 80, 0.6)';
+let lipstickColor = 'rgba(232, 134, 125, 0.65)'; // رنگ نود/پچ حرفه‌ای
 let lastLandmarks = null;
-let snapshotDataURL = null; // متغیر جدید برای ذخیره عکس واقعی
+let snapshotDataURL = null;
 
-// --- اتصال به عناصر HTML ---
+// --- اتصال به عناصر ---
 const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('makeupCanvas');
 const canvasCtx = canvasElement.getContext('2d');
@@ -28,45 +28,47 @@ const btnMale = document.getElementById('btnMale');
 const btnFemale = document.getElementById('btnFemale');
 const recommendationsSection = document.getElementById('recommendations');
 
-// --- دیکشنری ---
+// --- دیکشنری حرفه‌ای (اصلاح شده) ---
 const translations = {
     en: {
         warning: "⚠️ Inside Iran, you must turn ON a VPN to use this app. However, if you have 'Internet Pro', you MUST turn OFF your VPN.",
         designer: "Designed by Dr. Masoud Amiri",
         startBtn: "Start camera", restartBtn: "Restart Camera", waiting: "Waiting...",
-        shapeLabel: "FACE SHAPE", undertoneLabel: "SKIN UNDERTONE", recTitle: "Recommendations",
+        shapeLabel: "FACE SHAPE", undertoneLabel: "SKIN UNDERTONE", recTitle: "Professional Recommendations",
         oval: "Oval", round: "Round", square: "Square",
         warm: "Warm", cool: "Cool", neutral: "Neutral",
-        lips: "Lips", eyes: "Eyes & Contour", foundation: "Foundation",
-        fOvalWarm: { lips: "Coral/Peach lipstick", eyes: "Contour cheekbones, Winged eyeliner", foundation: "Yellow-based foundation" },
-        fOvalCool: { lips: "Berry/Pink lipstick", eyes: "Soft smokey eye, Rounded eyeliner", foundation: "Pink-based foundation" },
-        fOvalNeutral: { lips: "Mauve/Rose lipstick", eyes: "Natural contour, Thin eyeliner", foundation: "Neutral foundation" },
-        fRoundWarm: { lips: "Coral/Nude lipstick", eyes: "Angular contour, Cat-eye eyeliner", foundation: "Yellow-based foundation" },
-        fRoundCool: { lips: "Pink/Plum lipstick", eyes: "Angular contour, Cat-eye eyeliner", foundation: "Pink-based foundation" },
-        fRoundNeutral: { lips: "Mauve/Nude lipstick", eyes: "Angular contour, Cat-eye eyeliner", foundation: "Neutral foundation" },
-        fSquareWarm: { lips: "Warm Peach lipstick", eyes: "Soften jawline with blush, Rounded eyeliner", foundation: "Yellow-based foundation" },
-        fSquareCool: { lips: "Cool Berry lipstick", eyes: "Soften jawline with blush, Rounded eyeliner", foundation: "Pink-based foundation" },
-        fSquareNeutral: { lips: "Neutral Rose lipstick", eyes: "Soften jawline with blush, Rounded eyeliner", foundation: "Neutral foundation" },
-        male: { lips: "Clear lip balm or natural tint", eyes: "Subtle jawline contour, Cover dark circles", foundation: "Natural matte foundation" }
+        lips: "Lip Color", eyes: "Eyes & Contour", foundation: "Base & Concealer",
+        grooming: "Grooming & Skin", // برای آقاها
+        fOvalWarm: { lips: "Warm Peach / Terracotta Nude", eyes: "Soft sculpted cheekbones, Winged eyeliner", foundation: "Yellow/Gold-based base with peach concealer" },
+        fOvalCool: { lips: "Berry Rose / Icy Mauve", eyes: "Soft smokey eye, Rounded eyeliner", foundation: "Pink-based base with lilac corrector" },
+        fOvalNeutral: { lips: "Mauve / Dusty Rose", eyes: "Natural contour, Thin classic eyeliner", foundation: "Neutral olive or beige base" },
+        fRoundWarm: { lips: "Coral Nude / Warm Peach", eyes: "Angular contour to lengthen face, Cat-eye eyeliner", foundation: "Yellow-based matte base" },
+        fRoundCool: { lips: "Plum / Cool Pink", eyes: "Angular contour to lengthen face, Cat-eye eyeliner", foundation: "Pink-based matte base" },
+        fRoundNeutral: { lips: "Mauve Nude / Soft Berry", eyes: "Angular contour to lengthen face, Cat-eye eyeliner", foundation: "Neutral matte base" },
+        fSquareWarm: { lips: "Warm Peach / Soft Coral", eyes: "Blush on jawline to soften, Rounded soft eyeliner", foundation: "Yellow-based base" },
+        fSquareCool: { lips: "Cool Berry / Deep Rose", eyes: "Blush on jawline to soften, Rounded soft eyeliner", foundation: "Pink-based base" },
+        fSquareNeutral: { lips: "Neutral Rose / Dusty Pink", eyes: "Blush on jawline to soften, Rounded soft eyeliner", foundation: "Neutral base" },
+        male: { grooming: "Clear skin & Well-groomed brows", eyes: "Subtle jawline contour, Cover dark circles with peach corrector", foundation: "Natural matte tinted moisturizer" }
     },
     fa: {
         warning: "⚠️ در ایران برای استفاده از این اپلیکیشن، وی‌پی‌ان باید روشن باشد. اما اگر اینترنت پرو دارید، حتماً وی‌پی‌ان باید خاموش باشد.",
         designer: "کاری از دکتر مسعود امیری",
         startBtn: "فعال کردن دوربین", restartBtn: "شروع دوباره", waiting: "در انتظار...",
-        shapeLabel: "فرم صورت", undertoneLabel: "زیرین پوست", recTitle: "پیشنهادهای آرایش",
+        shapeLabel: "فرم صورت", undertoneLabel: "زیرین پوست", recTitle: "پیشنهادهای حرفه‌ای آرایش",
         oval: "بیضی", round: "گرد", square: "مربع",
         warm: "گرم", cool: "سرد", neutral: "خنثی",
-        lips: "لب", eyes: "چشم و سایه‌زنی", foundation: "پودر و کانسیلر",
-        fOvalWarm: { lips: "رژ لب هلو و مرجانی", eyes: "سایه‌زنی استخوان گونه، خط چشم گربه‌ای", foundation: "پودر با پایه زرد/طلایی" },
-        fOvalCool: { lips: "رژ لب یخی و مالین", eyes: "سایه چشم دودی ملایم، خط چشم دودی", foundation: "پودر با پایه صورتی" },
-        fOvalNeutral: { lips: "رژ لب رز و ماو", eyes: "سایه‌زنی طبیعی، خط چشم نازک", foundation: "پودر خنثی" },
-        fRoundWarm: { lips: "رژ لب هلو و نود", eyes: "سایه‌زنی زاویه‌دار، خط چشم گربه‌ای", foundation: "پودر با پایه زرد" },
-        fRoundCool: { lips: "رژ لب صورتی و انگوری", eyes: "سایه‌زنی زاویه‌دار، خط چشم گربه‌ای", foundation: "پودر با پایه صورتی" },
-        fRoundNeutral: { lips: "رژ لب ماو و نود", eyes: "سایه‌زنی زاویه‌دار، خط چشم گربه‌ای", foundation: "پودر خنثی" },
-        fSquareWarm: { lips: "رژ لب هلو گرم", eyes: "رنگ کردن خط فک، خط چشم گرد", foundation: "پودر با پایه زرد" },
-        fSquareCool: { lips: "رژ لب انگوری سرد", eyes: "رنگ کردن خط فک، خط چشم گرد", foundation: "پودر با پایه صورتی" },
-        fSquareNeutral: { lips: "رژ لب رز خنثی", eyes: "رنگ کردن خط فک، خط چشم گرد", foundation: "پودر خنثی" },
-        male: { lips: "بالمر شفاف یا نود طبیعی", eyes: "سایه‌زنی ملایم خط فک، پوشش سیاهی دور چشم", foundation: "پودر مات طبیعی" }
+        lips: "رنگ لب", eyes: "چشم و سایه‌زنی", foundation: "پودر و کانسیلر",
+        grooming: "مراقبت و آبرو", // برای آقاها
+        fOvalWarm: { lips: "رژ لب نود پچ / تراکوتا گرم", eyes: "سایه‌زنی ملایم استخوان گونه، خط چشم گربه‌ای", foundation: "پودر با پایه طلایی/زرد، کانسیلر پچ" },
+        fOvalCool: { lips: "رژ لب رز یخی / ماو بنفش", eyes: "سایه چشم دودی ملایم، خط چشم گرد", foundation: "پودر با پایه صورتی، کانسیلر بنفش" },
+        fOvalNeutral: { lips: "رژ لب ماو / رز خاکستری", eyes: "سایه‌زنی طبیعی، خط چشم کلاسیک", foundation: "پودر خنثی (بیج یا سبز فASF)" },
+        fRoundWarm: { lips: "رژ لب نود مرجانی / پچ", eyes: "سایه‌زنی زاویه‌دار برای کشیدگی صورت، خط چشم گربه‌ای", foundation: "پودر مات با پایه زرد" },
+        fRoundCool: { lips: "رژ لب انگوری / صورتی سرد", eyes: "سایه‌زنی زاویه‌دار برای کشیدگی صورت، خط چشم گربه‌ای", foundation: "پودر مات با پایه صورتی" },
+        fRoundNeutral: { lips: "رژ لب ماو نود / بنفش ملایم", eyes: "سایه‌زنی زاویه‌دار برای کشیدگی صورت، خط چشم گربه‌ای", foundation: "پودر مات خنثی" },
+        fSquareWarm: { lips: "رژ لب پچ گرم / مرجانی ملایم", eyes: "رنگ کردن خط فک برای نرم کردن زاویه، خط چشم گرد", foundation: "پودر با پایه زرد" },
+        fSquareCool: { lips: "رژ لب رز عمیق / انگوری سرد", eyes: "رنگ کردن خط فک برای نرم کردن زاویه، خط چشم گرد", foundation: "پودر با پایه صورتی" },
+        fSquareNeutral: { lips: "رژ لب رز خنثی / صورتی خاکی", eyes: "رنگ کردن خط فک برای نرم کردن زاویه، خط چشم گرد", foundation: "پودر خنثی" },
+        male: { grooming: "پوست تمیز و ابروهای مرتب", eyes: "سایه‌زنی ملایم خط فک، پوشش سیاهی دور چشم با کانسیلر پچ", foundation: "مرطوب‌کننده رنگی مات طبیعی" }
     }
 };
 
@@ -89,12 +91,12 @@ function updateUI() {
     else { startButton.innerText = t.restartBtn; }
 }
 
-// --- هوش مصنوعی گوگل ---
+// --- هوش مصنوعی ---
 const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: false }); // خاموش کردن حالت آینه‌ای در گوگل
+faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: false });
 faceMesh.onResults(onResults);
 
-// --- تابع رسم رژ لب مجازی ---
+// --- تابع رسم رژ لب ---
 function drawFilledLips(ctx, landmarks, color) {
     const upperOuter = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291];
     const lowerOuter = [291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61];
@@ -109,7 +111,7 @@ function drawFilledLips(ctx, landmarks, color) {
     ctx.closePath(); ctx.fill();
 }
 
-// --- پردازش نتایج (زنده) ---
+// --- پردازش زنده ---
 function onResults(results) {
   if (isCompleted) return;
 
@@ -118,12 +120,8 @@ function onResults(results) {
 
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-  // انعکاس آینه‌ای برای دوربین سلفی
   canvasCtx.translate(canvasElement.width, 0);
   canvasCtx.scale(-1, 1);
-
-  // رسم تصویر واقعی دوربین
   canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
   if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
@@ -150,10 +148,14 @@ function onResults(results) {
     const y = Math.round(foreheadPixel.y * canvasElement.height);
     const pixel = canvasCtx.getImageData(x, y, 1, 1).data;
     const R = pixel[0]; const G = pixel[1]; const B = pixel[2];
-    if ((R + G) > (B * 1.5)) { currentUndertone = 'warm'; undertoneValue.innerText = t.warm; lipstickColor = 'rgba(255, 127, 80, 0.6)'; }
-    else if (B > (R * 0.9)) { currentUndertone = 'cool'; undertoneValue.innerText = t.cool; lipstickColor = 'rgba(199, 21, 133, 0.6)'; }
-    else { currentUndertone = 'neutral'; undertoneValue.innerText = t.neutral; lipstickColor = 'rgba(224, 176, 255, 0.6)'; }
-    if (currentGender === 'male') lipstickColor = 'rgba(210, 180, 140, 0.4)';
+    
+    // رنگ‌های AR حرفه‌ای و طبیعی‌تر (نود/پچ/ماو)
+    if ((R + G) > (B * 1.5)) { currentUndertone = 'warm'; undertoneValue.innerText = t.warm; lipstickColor = 'rgba(232, 134, 125, 0.65)'; }
+    else if (B > (R * 0.9)) { currentUndertone = 'cool'; undertoneValue.innerText = t.cool; lipstickColor = 'rgba(168, 56, 106, 0.65)'; }
+    else { currentUndertone = 'neutral'; undertoneValue.innerText = t.neutral; lipstickColor = 'rgba(190, 140, 150, 0.65)'; }
+    
+    // برای آقاها: هیچ رژ لب AR روی صورت کشیده نمی‌شود!
+    if (currentGender === 'male') lipstickColor = 'transparent';
 
     if (!detectionTimer) { detectionTimer = setTimeout(() => completeAnalysis(), 3000); }
   } else {
@@ -164,37 +166,27 @@ function onResults(results) {
   canvasCtx.restore();
 }
 
-// --- توقف و نمایش نهایی (عکس واقعی + رژ لب روی لب) ---
+// --- توقف و تصویر نهایی ---
 function completeAnalysis() {
   isCompleted = true;
-  
-  // ۱. گرفتن یک عکس (Snapshot) از تصویر واقعی دوربین و خطوط قبل از خاموش شدن
   snapshotDataURL = canvasElement.toDataURL('image/png');
-
-  // ۲. خاموش کردن چراغ دوربین گوشی
+  
   const stream = videoElement.srcObject;
   if (stream) { stream.getTracks().forEach(track => track.stop()); }
   videoElement.srcObject = null;
-
   startButton.innerText = translations[currentLanguage].restartBtn;
 
-  // ۳. بارگذاری عکس واقعی ذخیره شده و رسم رژ لب روی آن
   const img = new Image();
   img.onload = () => {
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       canvasCtx.save();
-      
-      // انعکاس آینه‌ای
       canvasCtx.translate(canvasElement.width, 0);
       canvasCtx.scale(-1, 1);
-      
-      // رسم عکس واقعی کاربر (پس‌زمینه فرش و صورت واقعی)
       canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
       
-      // رسم رژ لب مجازی دقیقاً روی لب واقعی کاربر
-      if (lastLandmarks) { drawFilledLips(canvasCtx, lastLandmarks, lipstickColor); }
+      // فقط برای خانمها: رسم رژ لب واقعی روی عکس
+      if (lastLandmarks && lipstickColor !== 'transparent') { drawFilledLips(canvasCtx, lastLandmarks, lipstickColor); }
       
-      // رسم دوباره خطوط قرمز و آبی روی عکس (تا دقیقاً روی صورت بمانند)
       drawConnectors(canvasCtx, lastLandmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
       drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
       drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
@@ -202,30 +194,36 @@ function completeAnalysis() {
       drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
       
       canvasCtx.restore();
-      
-      // نمایش پیشنهادها
       recommendationsSection.classList.remove('hidden');
       renderRecommendations();
   };
   img.src = snapshotDataURL;
 }
 
-// --- تولید کادر پیشنهادها ---
+// --- کادرهای پیشنهاد ---
 function renderRecommendations() {
     const t = translations[currentLanguage];
     recCards.innerHTML = '';
     let recData;
-    if (currentGender === 'male') { recData = t.male; } 
-    else {
+    if (currentGender === 'male') { 
+        recData = t.male;
+        // برای آقاها: کادر لب حذف می‌شود، فقط مراقبت و سایه‌زنی نمایش داده می‌شود
+        const categories = [ { title: t.grooming, text: recData.grooming }, { title: t.eyes, text: recData.eyes }, { title: t.foundation, text: recData.foundation } ];
+        categories.forEach(cat => {
+            const card = document.createElement('div'); card.className = 'rec-card';
+            card.innerHTML = `<h3>${cat.title}</h3><p>${cat.text}</p>`;
+            recCards.appendChild(card);
+        });
+    } else {
         const key = `f${currentFaceShape.charAt(0).toUpperCase() + currentFaceShape.slice(1)}${currentUndertone.charAt(0).toUpperCase() + currentUndertone.slice(1)}`;
         recData = t[key] || t.fOvalNeutral;
+        const categories = [ { title: t.lips, text: recData.lips }, { title: t.eyes, text: recData.eyes }, { title: t.foundation, text: recData.foundation } ];
+        categories.forEach(cat => {
+            const card = document.createElement('div'); card.className = 'rec-card';
+            card.innerHTML = `<h3>${cat.title}</h3><p>${cat.text}</p>`;
+            recCards.appendChild(card);
+        });
     }
-    const categories = [ { title: t.lips, text: recData.lips }, { title: t.eyes, text: recData.eyes }, { title: t.foundation, text: recData.foundation } ];
-    categories.forEach(cat => {
-        const card = document.createElement('div'); card.className = 'rec-card';
-        card.innerHTML = `<h3>${cat.title}</h3><p>${cat.text}</p>`;
-        recCards.appendChild(card);
-    });
 }
 
 // --- دوربین ---
