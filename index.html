@@ -1,1 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Smart Makeup App</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- هوش مصنوعی گوگل -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+</head>
+<body>
 
+    <div class="container">
+        <!-- هشدار VPN -->
+        <div id="vpnWarning" class="warning-banner">
+            ⚠️ Inside Iran, you must turn ON a VPN to use this app. However, if you have 'Internet Pro', you MUST turn OFF your VPN.
+        </div>
+        
+        <!-- نام طراح -->
+        <h1 id="designerName">Designed by Dr. Masoud Amiri</h1>
+
+        <!-- دکمه‌های انتخاب -->
+        <div class="toggles">
+            <div class="toggle-group">
+                <button id="btnEn" class="toggle-btn active-lang">English</button>
+                <button id="btnFa" class="toggle-btn">فارسی</button>
+            </div>
+            <div class="toggle-group">
+                <button id="btnMale" class="toggle-btn">Male / آقا</button>
+                <button id="btnFemale" class="toggle-btn active-gender">Female / خانم</button>
+            </div>
+        </div>
+
+        <!-- دوربین -->
+        <div class="video-container">
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="makeupCanvas"></canvas>
+        </div>
+
+        <button id="startBtn" class="action-btn">Start camera</button>
+
+        <!-- بخش آنالیز زنده -->
+        <div id="liveAnalysis" class="analysis-section">
+            <div class="analysis-box">
+                <span class="label" id="shapeLabel">FACE SHAPE</span>
+                <span class="value" id="shapeValue">Waiting...</span>
+            </div>
+            <div class="analysis-box">
+                <span class="label" id="undertoneLabel">SKIN UNDERTONE</span>
+                <span class="value" id="undertoneValue">Waiting...</span>
+            </div>
+        </div>
+
+        <!-- بخش پیشنهادها -->
+        <div id="recommendations" class="recommendations-section hidden">
+            <h2 id="recTitle">Recommendations</h2>
+            <div id="recCards" class="rec-cards"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
