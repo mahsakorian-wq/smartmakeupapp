@@ -1,15 +1,13 @@
-// --- تنظیمات اولیه ---
+// --- تنظیمات ---
 let currentLanguage = 'en';
 let currentGender = 'female';
 let isCompleted = false;
 let detectionTimer = null;
 let currentFaceShape = '';
 let currentUndertone = '';
-let lipstickColor = 'rgba(232, 134, 125, 0.65)'; // رنگ نود/پچ حرفه‌ای
+let lipstickColor = 'rgba(232, 134, 125, 0.65)';
 let lastLandmarks = null;
-let snapshotDataURL = null;
 
-// --- اتصال به عناصر ---
 const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('makeupCanvas');
 const canvasCtx = canvasElement.getContext('2d');
@@ -28,7 +26,7 @@ const btnMale = document.getElementById('btnMale');
 const btnFemale = document.getElementById('btnFemale');
 const recommendationsSection = document.getElementById('recommendations');
 
-// --- دیکشنری حرفه‌ای (اصلاح شده) ---
+// --- دیکشنری حرفه‌ای ---
 const translations = {
     en: {
         warning: "⚠️ Inside Iran, you must turn ON a VPN to use this app. However, if you have 'Internet Pro', you MUST turn OFF your VPN.",
@@ -38,7 +36,7 @@ const translations = {
         oval: "Oval", round: "Round", square: "Square",
         warm: "Warm", cool: "Cool", neutral: "Neutral",
         lips: "Lip Color", eyes: "Eyes & Contour", foundation: "Base & Concealer",
-        grooming: "Grooming & Skin", // برای آقاها
+        grooming: "Grooming & Skin",
         fOvalWarm: { lips: "Warm Peach / Terracotta Nude", eyes: "Soft sculpted cheekbones, Winged eyeliner", foundation: "Yellow/Gold-based base with peach concealer" },
         fOvalCool: { lips: "Berry Rose / Icy Mauve", eyes: "Soft smokey eye, Rounded eyeliner", foundation: "Pink-based base with lilac corrector" },
         fOvalNeutral: { lips: "Mauve / Dusty Rose", eyes: "Natural contour, Thin classic eyeliner", foundation: "Neutral olive or beige base" },
@@ -58,7 +56,7 @@ const translations = {
         oval: "بیضی", round: "گرد", square: "مربع",
         warm: "گرم", cool: "سرد", neutral: "خنثی",
         lips: "رنگ لب", eyes: "چشم و سایه‌زنی", foundation: "پودر و کانسیلر",
-        grooming: "مراقبت و آبرو", // برای آقاها
+        grooming: "مراقبت و آبرو",
         fOvalWarm: { lips: "رژ لب نود پچ / تراکوتا گرم", eyes: "سایه‌زنی ملایم استخوان گونه، خط چشم گربه‌ای", foundation: "پودر با پایه طلایی/زرد، کانسیلر پچ" },
         fOvalCool: { lips: "رژ لب رز یخی / ماو بنفش", eyes: "سایه چشم دودی ملایم، خط چشم گرد", foundation: "پودر با پایه صورتی، کانسیلر بنفش" },
         fOvalNeutral: { lips: "رژ لب ماو / رز خاکستری", eyes: "سایه‌زنی طبیعی، خط چشم کلاسیک", foundation: "پودر خنثی (بیج یا سبز فASF)" },
@@ -72,7 +70,6 @@ const translations = {
     }
 };
 
-// --- دکمه‌ها ---
 btnEn.onclick = () => { currentLanguage = 'en'; btnEn.classList.add('active-lang'); btnFa.classList.remove('active-lang'); updateUI(); };
 btnFa.onclick = () => { currentLanguage = 'fa'; btnFa.classList.add('active-lang'); btnEn.classList.remove('active-lang'); updateUI(); };
 btnMale.onclick = () => { currentGender = 'male'; btnMale.classList.add('active-gender'); btnFemale.classList.remove('active-gender'); };
@@ -80,23 +77,19 @@ btnFemale.onclick = () => { currentGender = 'female'; btnFemale.classList.add('a
 
 function updateUI() {
     const t = translations[currentLanguage];
-    vpnWarning.innerText = t.warning;
-    designerName.innerText = t.designer;
-    shapeLabel.innerText = t.shapeLabel;
-    undertoneLabel.innerText = t.undertoneLabel;
-    recTitle.innerText = t.recTitle;
+    vpnWarning.innerText = t.warning; designerName.innerText = t.designer;
+    shapeLabel.innerText = t.shapeLabel; undertoneLabel.innerText = t.undertoneLabel; recTitle.innerText = t.recTitle;
     document.body.dir = currentLanguage === 'fa' ? 'rtl' : 'ltr';
     document.body.style.fontFamily = currentLanguage === 'fa' ? 'Tahoma, Arial, sans-serif' : 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif';
     if(!isCompleted) { startButton.innerText = t.startBtn; shapeValue.innerText = t.waiting; undertoneValue.innerText = t.waiting; }
     else { startButton.innerText = t.restartBtn; }
 }
 
-// --- هوش مصنوعی ---
+// --- هوش مصنوعی (حالت خام، CSS آینه را تنظیم می‌کند) ---
 const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: false });
+faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: false }); 
 faceMesh.onResults(onResults);
 
-// --- تابع رسم رژ لب ---
 function drawFilledLips(ctx, landmarks, color) {
     const upperOuter = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291];
     const lowerOuter = [291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61];
@@ -111,7 +104,7 @@ function drawFilledLips(ctx, landmarks, color) {
     ctx.closePath(); ctx.fill();
 }
 
-// --- پردازش زنده ---
+// --- پردازش زنده (رسم تصویر + خطوط هوش مصنوعی) ---
 function onResults(results) {
   if (isCompleted) return;
 
@@ -120,14 +113,15 @@ function onResults(results) {
 
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-  canvasCtx.translate(canvasElement.width, 0);
-  canvasCtx.scale(-1, 1);
+
+  // رسم تصویر خام دوربین (بدون هیچ کد آینه‌ای در JS)
   canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
   if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
     const landmarks = results.multiFaceLandmarks[0];
     lastLandmarks = landmarks;
 
+    // رسم خطوط روی صورت (این خطوط فقط در حالت زنده دیده می‌شوند)
     drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
@@ -148,13 +142,9 @@ function onResults(results) {
     const y = Math.round(foreheadPixel.y * canvasElement.height);
     const pixel = canvasCtx.getImageData(x, y, 1, 1).data;
     const R = pixel[0]; const G = pixel[1]; const B = pixel[2];
-    
-    // رنگ‌های AR حرفه‌ای و طبیعی‌تر (نود/پچ/ماو)
     if ((R + G) > (B * 1.5)) { currentUndertone = 'warm'; undertoneValue.innerText = t.warm; lipstickColor = 'rgba(232, 134, 125, 0.65)'; }
     else if (B > (R * 0.9)) { currentUndertone = 'cool'; undertoneValue.innerText = t.cool; lipstickColor = 'rgba(168, 56, 106, 0.65)'; }
     else { currentUndertone = 'neutral'; undertoneValue.innerText = t.neutral; lipstickColor = 'rgba(190, 140, 150, 0.65)'; }
-    
-    // برای آقاها: هیچ رژ لب AR روی صورت کشیده نمی‌شود!
     if (currentGender === 'male') lipstickColor = 'transparent';
 
     if (!detectionTimer) { detectionTimer = setTimeout(() => completeAnalysis(), 3000); }
@@ -166,71 +156,63 @@ function onResults(results) {
   canvasCtx.restore();
 }
 
-// --- توقف و تصویر نهایی ---
+// --- توقف دوربین و ساخت عکس نهایی واقعی ---
 function completeAnalysis() {
   isCompleted = true;
-  snapshotDataURL = canvasElement.toDataURL('image/png');
   
+  // ۱. پاک کردن تمام خطوط کارتونی (دایره قرمز و...) از روی Canvas
+  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  
+  // ۲. رسم فقط تصویر واقعی دوربین (صورت و پس‌زمینه) بدون هیچ خطوطی
+  canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+  
+  // ۳. گرفتن عکس از این تصویر واقعی و تمیز (Snapshot)
+  const cleanSnapshotDataURL = canvasElement.toDataURL('image/png');
+  
+  // ۴. خاموش کردن چراغ دوربین گوشی
   const stream = videoElement.srcObject;
   if (stream) { stream.getTracks().forEach(track => track.stop()); }
   videoElement.srcObject = null;
   startButton.innerText = translations[currentLanguage].restartBtn;
 
+  // ۵. بارگذاری عکس واقعی تمیز و رسم فقط رژ لب روی آن
   const img = new Image();
   img.onload = () => {
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      canvasCtx.save();
-      canvasCtx.translate(canvasElement.width, 0);
-      canvasCtx.scale(-1, 1);
+      
+      // رسم عکس واقعی صورت شما (هیچ خط قرمز و آبی در این عکس نیست)
       canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
       
-      // فقط برای خانمها: رسم رژ لب واقعی روی عکس
+      // فقط برای خانمها: رسم رنگ رژ لب دقیقاً روی لب واقعی در عکس
       if (lastLandmarks && lipstickColor !== 'transparent') { drawFilledLips(canvasCtx, lastLandmarks, lipstickColor); }
       
-      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
-      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
-      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
-      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LEFT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
-      drawConnectors(canvasCtx, lastLandmarks, FACEMESH_RIGHT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
-      
-      canvasCtx.restore();
+      // نمایش پیشنهادها
       recommendationsSection.classList.remove('hidden');
       renderRecommendations();
   };
-  img.src = snapshotDataURL;
+  img.src = cleanSnapshotDataURL;
 }
 
-// --- کادرهای پیشنهاد ---
 function renderRecommendations() {
     const t = translations[currentLanguage];
     recCards.innerHTML = '';
     let recData;
     if (currentGender === 'male') { 
         recData = t.male;
-        // برای آقاها: کادر لب حذف می‌شود، فقط مراقبت و سایه‌زنی نمایش داده می‌شود
         const categories = [ { title: t.grooming, text: recData.grooming }, { title: t.eyes, text: recData.eyes }, { title: t.foundation, text: recData.foundation } ];
-        categories.forEach(cat => {
-            const card = document.createElement('div'); card.className = 'rec-card';
-            card.innerHTML = `<h3>${cat.title}</h3><p>${cat.text}</p>`;
-            recCards.appendChild(card);
-        });
+        categories.forEach(cat => { const card = document.createElement('div'); card.className = 'rec-card'; card.innerHTML = `<h3>${cat.title}</h3><p>${cat.text}</p>`; recCards.appendChild(card); });
     } else {
         const key = `f${currentFaceShape.charAt(0).toUpperCase() + currentFaceShape.slice(1)}${currentUndertone.charAt(0).toUpperCase() + currentUndertone.slice(1)}`;
         recData = t[key] || t.fOvalNeutral;
         const categories = [ { title: t.lips, text: recData.lips }, { title: t.eyes, text: recData.eyes }, { title: t.foundation, text: recData.foundation } ];
-        categories.forEach(cat => {
-            const card = document.createElement('div'); card.className = 'rec-card';
-            card.innerHTML = `<h3>${cat.title}</h3><p>${cat.text}</p>`;
-            recCards.appendChild(card);
-        });
+        categories.forEach(cat => { const card = document.createElement('div'); card.className = 'rec-card'; card.innerHTML = `<h3>${cat.title}</h3><p>${cat.text}</p>`; recCards.appendChild(card); });
     }
 }
 
-// --- دوربین ---
 async function enableCamera() {
   try {
     if (isCompleted) {
-        isCompleted = false; detectionTimer = null; lastLandmarks = null; snapshotDataURL = null;
+        isCompleted = false; detectionTimer = null; lastLandmarks = null;
         recommendationsSection.classList.add('hidden');
         shapeValue.innerText = translations[currentLanguage].waiting;
         undertoneValue.innerText = translations[currentLanguage].waiting;
