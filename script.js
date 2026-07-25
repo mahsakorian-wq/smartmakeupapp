@@ -1,4 +1,4 @@
-// --- تنظیمات اولیه و متغیرها ---
+// --- تنظیمات اولیه ---
 let currentLanguage = 'en';
 let currentGender = 'female';
 let isCompleted = false;
@@ -6,9 +6,9 @@ let detectionTimer = null;
 let currentFaceShape = '';
 let currentUndertone = '';
 let lipstickColor = 'rgba(255, 127, 80, 0.6)';
-let lastLandmarks = null; // متغیر جدید برای ذخیره نقاط صورت بعد از فریز
+let lastLandmarks = null;
 
-// --- اتصال به عناصر صفحه HTML ---
+// --- اتصال به عناصر HTML ---
 const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('makeupCanvas');
 const canvasCtx = canvasElement.getContext('2d');
@@ -27,12 +27,12 @@ const btnMale = document.getElementById('btnMale');
 const btnFemale = document.getElementById('btnFemale');
 const recommendationsSection = document.getElementById('recommendations');
 
-// --- دیکشنری ترجمه (اصلاح شده و کامل) ---
+// --- دیکشنری ترجمه ---
 const translations = {
     en: {
         warning: "⚠️ Inside Iran, you must turn ON a VPN to use this app. However, if you have 'Internet Pro', you MUST turn OFF your VPN.",
         designer: "Designed by Dr. Masoud Amiri",
-        startBtn: "Start camera", restartBtn: "Restart Camera", complete: "Analysis Complete ✅", waiting: "Waiting...",
+        startBtn: "Start camera", restartBtn: "Restart Camera", waiting: "Waiting...",
         shapeLabel: "FACE SHAPE", undertoneLabel: "SKIN UNDERTONE", recTitle: "Recommendations",
         oval: "Oval", round: "Round", square: "Square",
         warm: "Warm", cool: "Cool", neutral: "Neutral",
@@ -51,7 +51,7 @@ const translations = {
     fa: {
         warning: "⚠️ در ایران برای استفاده از این اپلیکیشن، وی‌پی‌ان باید روشن باشد. اما اگر اینترنت پرو دارید، حتماً وی‌پی‌ان باید خاموش باشد.",
         designer: "کاری از دکتر مسعود امیری",
-        startBtn: "فعال کردن دوربین", restartBtn: "شروع دوباره", complete: "آنالیز تمام شد ✅", waiting: "در انتظار...",
+        startBtn: "فعال کردن دوربین", restartBtn: "شروع دوباره", waiting: "در انتظار...",
         shapeLabel: "فرم صورت", undertoneLabel: "زیرین پوست", recTitle: "پیشنهادهای آرایش",
         oval: "بیضی", round: "گرد", square: "مربع",
         warm: "گرم", cool: "سرد", neutral: "خنثی",
@@ -69,7 +69,7 @@ const translations = {
     }
 };
 
-// --- منطق دکمه‌ها ---
+// --- دکمه‌ها ---
 btnEn.onclick = () => { currentLanguage = 'en'; btnEn.classList.add('active-lang'); btnFa.classList.remove('active-lang'); updateUI(); };
 btnFa.onclick = () => { currentLanguage = 'fa'; btnFa.classList.add('active-lang'); btnEn.classList.remove('active-lang'); updateUI(); };
 btnMale.onclick = () => { currentGender = 'male'; btnMale.classList.add('active-gender'); btnFemale.classList.remove('active-gender'); };
@@ -82,17 +82,10 @@ function updateUI() {
     shapeLabel.innerText = t.shapeLabel;
     undertoneLabel.innerText = t.undertoneLabel;
     recTitle.innerText = t.recTitle;
-    // تغییر جهت نوشتار برای فارسی
     document.body.dir = currentLanguage === 'fa' ? 'rtl' : 'ltr';
     document.body.style.fontFamily = currentLanguage === 'fa' ? 'Tahoma, Arial, sans-serif' : 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif';
-
-    if(!isCompleted) {
-        startButton.innerText = t.startBtn;
-        shapeValue.innerText = t.waiting;
-        undertoneValue.innerText = t.waiting;
-    } else {
-        startButton.innerText = t.restartBtn;
-    }
+    if(!isCompleted) { startButton.innerText = t.startBtn; shapeValue.innerText = t.waiting; undertoneValue.innerText = t.waiting; }
+    else { startButton.innerText = t.restartBtn; }
 }
 
 // --- هوش مصنوعی گوگل ---
@@ -100,17 +93,51 @@ const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/
 faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: true });
 faceMesh.onResults(onResults);
 
+// --- تابع رسم رژ لب مجازی (پر کردن داخل لب) ---
+function drawFilledLips(ctx, landmarks, color) {
+    // نقاط حاشیه خارجی لب بالا و لب پایین (استخراج شده از مدل گوگل)
+    const upperOuter = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291];
+    const lowerOuter = [291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61];
+
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+
+    // رسم لب بالا
+    ctx.beginPath();
+    ctx.moveTo(landmarks[upperOuter[0]].x * canvasElement.width, landmarks[upperOuter[0]].y * canvasElement.height);
+    for (let i = 1; i < upperOuter.length; i++) {
+        ctx.lineTo(landmarks[upperOuter[i]].x * canvasElement.width, landmarks[upperOuter[i]].y * canvasElement.height);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // رسم لب پایین
+    ctx.beginPath();
+    ctx.moveTo(landmarks[lowerOuter[0]].x * canvasElement.width, landmarks[lowerOuter[0]].y * canvasElement.height);
+    for (let i = 1; i < lowerOuter.length; i++) {
+        ctx.lineTo(landmarks[lowerOuter[i]].x * canvasElement.width, landmarks[lowerOuter[i]].y * canvasElement.height);
+    }
+    ctx.closePath();
+    ctx.fill();
+}
+
 // --- پردازش نتایج ---
 function onResults(results) {
   if (isCompleted) return;
+
+  // **اصلاح مشکل ۱:** تنظیم دقیق اندازه Canvas با اندازه ویدیو دوربین
+  canvasElement.width = videoElement.videoWidth;
+  canvasElement.height = videoElement.videoHeight;
 
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
   
   if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
     const landmarks = results.multiFaceLandmarks[0];
-    lastLandmarks = landmarks; // ذخیره نقاط برای استفاده بعد از فریز
+    lastLandmarks = landmarks;
 
+    // رسم خطوط پایه (چشم، ابرو، دور صورت) - نازک و دقیق
     drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
@@ -118,33 +145,27 @@ function onResults(results) {
     drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYEBROW, {color: '#A4B0BE', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, {color: '#E8B4B8', lineWidth: 2});
 
-    const forehead = landmarks[10];
-    const chin = landmarks[152];
-    const leftCheek = landmarks[234];
-    const rightCheek = landmarks[454];
-    const faceLength = Math.abs(forehead.y - chin.y);
-    const faceWidth = Math.abs(leftCheek.x - rightCheek.x);
+    // محاسبه فرم صورت
+    const forehead = landmarks[10]; const chin = landmarks[152]; const leftCheek = landmarks[234]; const rightCheek = landmarks[454];
+    const faceLength = Math.abs(forehead.y - chin.y); const faceWidth = Math.abs(leftCheek.x - rightCheek.x);
     const ratio = faceLength / faceWidth;
-
     const t = translations[currentLanguage];
     if (ratio > 1.4) { currentFaceShape = 'oval'; shapeValue.innerText = t.oval; }
     else if (ratio < 1.1) { currentFaceShape = 'square'; shapeValue.innerText = t.square; }
     else { currentFaceShape = 'round'; shapeValue.innerText = t.round; }
 
+    // آنالیز رنگ پوست
     const foreheadPixel = landmarks[10];
     const x = Math.round(foreheadPixel.x * canvasElement.width);
     const y = Math.round(foreheadPixel.y * canvasElement.height);
     const pixel = canvasCtx.getImageData(x, y, 1, 1).data;
     const R = pixel[0]; const G = pixel[1]; const B = pixel[2];
-
     if ((R + G) > (B * 1.5)) { currentUndertone = 'warm'; undertoneValue.innerText = t.warm; lipstickColor = 'rgba(255, 127, 80, 0.6)'; }
     else if (B > (R * 0.9)) { currentUndertone = 'cool'; undertoneValue.innerText = t.cool; lipstickColor = 'rgba(199, 21, 133, 0.6)'; }
     else { currentUndertone = 'neutral'; undertoneValue.innerText = t.neutral; lipstickColor = 'rgba(224, 176, 255, 0.6)'; }
-
     if (currentGender === 'male') lipstickColor = 'rgba(210, 180, 140, 0.4)';
 
     if (!detectionTimer) { detectionTimer = setTimeout(() => completeAnalysis(), 3000); }
-
   } else {
     shapeValue.innerText = translations[currentLanguage].waiting;
     undertoneValue.innerText = translations[currentLanguage].waiting;
@@ -153,17 +174,16 @@ function onResults(results) {
   canvasCtx.restore();
 }
 
-// --- توقف و نمایش نتایج نهایی ---
+// --- توقف و نمایش نهایی ---
 function completeAnalysis() {
   isCompleted = true;
   const stream = videoElement.srcObject;
-  if (stream) { stream.getTracks().forEach(track => track.stop()); } // فریز دوربین
-  
+  if (stream) { stream.getTracks().forEach(track => track.stop()); }
   startButton.innerText = translations[currentLanguage].restartBtn;
 
-  // رسم رژ لب مجازی روی تصویر فریز شده (ضخامت بالا)
+  // **اصلاح مشکل ۲:** رسم رژ لب واقعی (پر کردن داخل لب) روی تصویر فریز شده
   if (lastLandmarks) {
-    drawConnectors(canvasCtx, lastLandmarks, FACEMESH_LIPS, {color: lipstickColor, lineWidth: 8});
+    drawFilledLips(canvasCtx, lastLandmarks, lipstickColor);
   }
 
   recommendationsSection.classList.remove('hidden');
@@ -199,7 +219,6 @@ async function enableCamera() {
         canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     }
     startButton.innerText = "Loading AI... ⏳";
-    
     const camera = new Camera(videoElement, {
       onFrame: async () => { if (!isCompleted) { await faceMesh.send({image: videoElement}); } },
       width: 720, height: 960, facingMode: 'user'
@@ -213,4 +232,4 @@ async function enableCamera() {
 }
 
 startButton.addEventListener('click', enableCamera);
-updateUI(); // اجرای اولیه
+updateUI();
