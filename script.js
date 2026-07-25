@@ -5,7 +5,9 @@ let isCompleted = false;
 let detectionTimer = null;
 let currentFaceShape = '';
 let currentUndertone = '';
-let lipstickColor = 'rgba(232, 134, 125, 0.65)';
+let lipstickColor = 'rgba(232, 134, 125, 0.45)'; // رژ لب شفاف‌تر (Tint)
+let foundationColor = 'rgba(255, 220, 200, 0.08)'; // فانداسیون بسیار ملایم
+let contourColor = 'rgba(139, 90, 43, 0.15)'; // سایه‌زنی (Contour) ملایم
 let lastLandmarks = null;
 
 const videoElement = document.getElementById('webcam');
@@ -26,7 +28,7 @@ const btnMale = document.getElementById('btnMale');
 const btnFemale = document.getElementById('btnFemale');
 const recommendationsSection = document.getElementById('recommendations');
 
-// --- دیکشنری حرفه‌ای ---
+// --- دیکشنری ---
 const translations = {
     en: {
         warning: "⚠️ Inside Iran, you must turn ON a VPN to use this app. However, if you have 'Internet Pro', you MUST turn OFF your VPN.",
@@ -85,11 +87,11 @@ function updateUI() {
     else { startButton.innerText = t.restartBtn; }
 }
 
-// --- هوش مصنوعی (حالت خام، CSS آینه را تنظیم می‌کند) ---
 const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: false }); 
+faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, selfieMode: false });
 faceMesh.onResults(onResults);
 
+// --- ماسک رژ لب (شفاف‌تر شده) ---
 function drawFilledLips(ctx, landmarks, color) {
     const upperOuter = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291];
     const lowerOuter = [291, 375, 321, 405, 314, 17, 84, 181, 91, 146, 61];
@@ -104,7 +106,38 @@ function drawFilledLips(ctx, landmarks, color) {
     ctx.closePath(); ctx.fill();
 }
 
-// --- پردازش زنده (رسم تصویر + خطوط هوش مصنوعی) ---
+// --- ماسک فانداسیون (روی کل صورت) ---
+function drawFoundationMask(ctx, landmarks, color) {
+    const faceOvalIndices = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(landmarks[faceOvalIndices[0]].x * canvasElement.width, landmarks[faceOvalIndices[0]].y * canvasElement.height);
+    for (let i = 1; i < faceOvalIndices.length; i++) { ctx.lineTo(landmarks[faceOvalIndices[i]].x * canvasElement.width, landmarks[faceOvalIndices[i]].y * canvasElement.height); }
+    ctx.closePath(); ctx.fill();
+}
+
+// --- ماسک سایه‌زنی (Contour روی گونه و فک) ---
+function drawContourMask(ctx, landmarks, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 15; // ضخامت سایه‌زنی
+    ctx.lineCap = 'round';
+    
+    // گونه سمت چپ
+    ctx.beginPath();
+    ctx.moveTo(landmarks[234].x * canvasElement.width, landmarks[234].y * canvasElement.height);
+    ctx.lineTo(landmarks[132].x * canvasElement.width, landmarks[132].y * canvasElement.height);
+    ctx.lineTo(landmarks[58].x * canvasElement.width, landmarks[58].y * canvasElement.height);
+    ctx.stroke();
+    
+    // گونه سمت راست
+    ctx.beginPath();
+    ctx.moveTo(landmarks[454].x * canvasElement.width, landmarks[454].y * canvasElement.height);
+    ctx.lineTo(landmarks[361].x * canvasElement.width, landmarks[361].y * canvasElement.height);
+    ctx.lineTo(landmarks[288].x * canvasElement.width, landmarks[288].y * canvasElement.height);
+    ctx.stroke();
+}
+
+// --- پردازش زنده ---
 function onResults(results) {
   if (isCompleted) return;
 
@@ -113,15 +146,12 @@ function onResults(results) {
 
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-  // رسم تصویر خام دوربین (بدون هیچ کد آینه‌ای در JS)
   canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
   if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
     const landmarks = results.multiFaceLandmarks[0];
     lastLandmarks = landmarks;
 
-    // رسم خطوط روی صورت (این خطوط فقط در حالت زنده دیده می‌شوند)
     drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#FF4757', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#70A1FF', lineWidth: 2});
     drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#70A1FF', lineWidth: 2});
@@ -142,10 +172,14 @@ function onResults(results) {
     const y = Math.round(foreheadPixel.y * canvasElement.height);
     const pixel = canvasCtx.getImageData(x, y, 1, 1).data;
     const R = pixel[0]; const G = pixel[1]; const B = pixel[2];
-    if ((R + G) > (B * 1.5)) { currentUndertone = 'warm'; undertoneValue.innerText = t.warm; lipstickColor = 'rgba(232, 134, 125, 0.65)'; }
-    else if (B > (R * 0.9)) { currentUndertone = 'cool'; undertoneValue.innerText = t.cool; lipstickColor = 'rgba(168, 56, 106, 0.65)'; }
-    else { currentUndertone = 'neutral'; undertoneValue.innerText = t.neutral; lipstickColor = 'rgba(190, 140, 150, 0.65)'; }
-    if (currentGender === 'male') lipstickColor = 'transparent';
+    
+    // تنظیم ماسک‌ها بر اساس رنگ پوست (فانداسیون و رژ لب طبیعی‌تر)
+    if ((R + G) > (B * 1.5)) { currentUndertone = 'warm'; undertoneValue.innerText = t.warm; lipstickColor = 'rgba(232, 134, 125, 0.45)'; foundationColor = 'rgba(255, 220, 200, 0.08)'; contourColor = 'rgba(139, 90, 43, 0.15)'; }
+    else if (B > (R * 0.9)) { currentUndertone = 'cool'; undertoneValue.innerText = t.cool; lipstickColor = 'rgba(168, 56, 106, 0.45)'; foundationColor = 'rgba(200, 220, 255, 0.08)'; contourColor = 'rgba(80, 60, 70, 0.15)'; }
+    else { currentUndertone = 'neutral'; undertoneValue.innerText = t.neutral; lipstickColor = 'rgba(190, 140, 150, 0.45)'; foundationColor = 'rgba(255, 255, 240, 0.08)'; contourColor = 'rgba(120, 80, 60, 0.15)'; }
+    
+    // برای آقاها: هیچ ماسک رنگی روی پوست و لب
+    if (currentGender === 'male') { lipstickColor = 'transparent'; foundationColor = 'transparent'; contourColor = 'rgba(139, 90, 43, 0.05)'; } // فقط سایه‌زنی بسیار ملایم خط فک
 
     if (!detectionTimer) { detectionTimer = setTimeout(() => completeAnalysis(), 3000); }
   } else {
@@ -156,37 +190,40 @@ function onResults(results) {
   canvasCtx.restore();
 }
 
-// --- توقف دوربین و ساخت عکس نهایی واقعی ---
+// --- تصویر نهایی با ماسک‌های آرایش ---
 function completeAnalysis() {
   isCompleted = true;
   
-  // ۱. پاک کردن تمام خطوط کارتونی (دایره قرمز و...) از روی Canvas
+  // ۱. پاک کردن خطوط کارتونی از روی Canvas
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
   
-  // ۲. رسم فقط تصویر واقعی دوربین (صورت و پس‌زمینه) بدون هیچ خطوطی
+  // ۲. رسم تصویر واقعی دوربین (پوست و صورت اپراتور)
   canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
   
-  // ۳. گرفتن عکس از این تصویر واقعی و تمیز (Snapshot)
+  // ۳. گرفتن عکس از صورت واقعی تمیز
   const cleanSnapshotDataURL = canvasElement.toDataURL('image/png');
   
-  // ۴. خاموش کردن چراغ دوربین گوشی
+  // ۴. خاموش کردن دوربین
   const stream = videoElement.srcObject;
   if (stream) { stream.getTracks().forEach(track => track.stop()); }
   videoElement.srcObject = null;
   startButton.innerText = translations[currentLanguage].restartBtn;
 
-  // ۵. بارگذاری عکس واقعی تمیز و رسم فقط رژ لب روی آن
+  // ۵. اعمال ماسک‌های آرایش روی عکس واقعی
   const img = new Image();
   img.onload = () => {
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height); // عکس واقعی
       
-      // رسم عکس واقعی صورت شما (هیچ خط قرمز و آبی در این عکس نیست)
-      canvasCtx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
+      // لایه ۱: ماسک فانداسیون (روی کل صورت)
+      if (foundationColor !== 'transparent') { drawFoundationMask(canvasCtx, lastLandmarks, foundationColor); }
       
-      // فقط برای خانمها: رسم رنگ رژ لب دقیقاً روی لب واقعی در عکس
-      if (lastLandmarks && lipstickColor !== 'transparent') { drawFilledLips(canvasCtx, lastLandmarks, lipstickColor); }
+      // لایه ۲: ماسک سایه‌زنی (روی گونه‌ها)
+      drawContourMask(canvasCtx, lastLandmarks, contourColor);
       
-      // نمایش پیشنهادها
+      // لایه ۳: ماسک رژ لب (Tint شفاف روی لب)
+      if (lipstickColor !== 'transparent') { drawFilledLips(canvasCtx, lastLandmarks, lipstickColor); }
+      
       recommendationsSection.classList.remove('hidden');
       renderRecommendations();
   };
